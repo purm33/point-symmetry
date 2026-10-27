@@ -156,6 +156,12 @@ let off=0;onValue(ref(db,'.info/serverTimeOffset'),s=>{off=s.val()||0});
 const now=()=>Date.now()+off;
 const fmt=ms=>(ms/1000).toFixed(1)+'초';
 const ls=(k,v)=>{try{if(v===undefined)return localStorage.getItem(k);v===null?localStorage.removeItem(k):localStorage.setItem(k,v)}catch(e){return null}};
+/* 학생 번호는 이 탭에만 임시로 저장한다. 창을 닫거나 날짜가 바뀌면 사라져서, 다음에 열면 번호 선택 화면이 나온다 */
+const ss=(k,v)=>{try{if(v===undefined)return sessionStorage.getItem(k);v===null?sessionStorage.removeItem(k):sessionStorage.setItem(k,v)}catch(e){return null}};
+const today=()=>{const d=new Date();return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate()};
+function loadNo(){ls('pg.no',null);if(ss('pg.day')!==today()){ss('pg.no',null);return null}return ss('pg.no')}
+function saveNo(n){ss('pg.no',n);ss('pg.day',today())}
+function clearNo(){ss('pg.no',null);ss('pg.day',null)}
 
 /* ===== 문제 ===== */
 const PP=[
@@ -250,9 +256,8 @@ function onTap(e){
   render();
   if(isDone())solved();
 }
-/* 완성했을 때 보드 가운데에서 색종이가 터진다. 약 1.8초 뒤 사라지고, 동작 줄이기 설정이면 건너뛴다 */
+/* 완성했을 때 보드 가운데에서 색종이가 터진다. 약 1.8초 뒤 사라진다. 학교 기기에서 애니메이션 효과가 꺼져 있는 경우가 많아 동작 줄이기 설정과 상관없이 나오게 했다 */
 function confetti(){
-  if(window.matchMedia('(prefers-reduced-motion:reduce)').matches)return;
   const c=document.createElement('canvas'),dpr=window.devicePixelRatio||1;
   c.style.cssText='position:fixed;left:0;top:0;width:100%;height:100%;pointer-events:none;z-index:50';
   c.width=innerWidth*dpr;c.height=innerHeight*dpr;document.body.appendChild(c);
@@ -343,15 +348,15 @@ function studentInit(){
   $('undo').onclick=()=>{if(!canPlay())return;const h=hist.pop();if(!h)return;segs=h.s;cur=h.c;render()};
   $('clear').onclick=()=>{if(!canPlay()||(!segs.length&&!cur))return;hist.push({s:segs.slice(),c:cur});segs=[];cur=null;render()};
   $('newp').onclick=newPractice;$('links').onchange=render;
-  no=ls('pg.no');
+  no=loadNo();
   if(no)enter();else $('join').hidden=false;
 }
-function pick(i){no=String(i);ls('pg.no',no);enter()}
+function pick(i){no=String(i);saveNo(no);enter()}
 function enter(){
   $('join').hidden=true;$('stage').hidden=false;$('boardCard').hidden=false;$('tools').hidden=false;
   $('who').textContent=no+'번 친구 ';
   const ch=document.createElement('button');ch.className='btn';ch.type='button';ch.textContent='번호 바꾸기';ch.style.minHeight='30px';ch.style.padding='2px 8px';
-  ch.onclick=()=>{if(g.state==='play')return;ls('pg.no',null);location.reload()};$('who').appendChild(ch);chBtn=ch;lockChange();
+  ch.onclick=()=>{if(g.state==='play')return;clearNo();location.reload()};$('who').appendChild(ch);chBtn=ch;lockChange();
   register();onGame(g);
 }
 
