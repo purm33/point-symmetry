@@ -121,7 +121,7 @@ input.pin{font:700 20px sans-serif;width:6ch;text-align:center;padding:6px;borde
         <label><input type="radio" name="ty" value="l"><span>선대칭</span></label>
       </div>
       <button class="btn main" id="tgo" type="button">시작</button>
-      <button class="btn" id="treset" type="button">점수 초기화</button>
+      <button class="btn" id="treset" type="button">전체 초기화</button>
       <span class="stat" id="tstat"></span>
     </div>
     <p class="msg" id="tmsg" style="padding:0 4px"></p>
@@ -346,14 +346,14 @@ function teacherInit(){
   document.querySelectorAll('input[name="lv"]').forEach(r=>r.onchange=()=>{if(r.checked)level=r.value});
   document.querySelectorAll('input[name="ty"]').forEach(r=>r.onchange=()=>{if(r.checked)kindSel=r.value});
   $('tgo').onclick=()=>g.state==='play'?endRound():startRound();
-  $('treset').onclick=()=>{if(confirm('누적 점수를 모두 0으로 돌릴까요?'))set(ref(db,'scores'),null)};
+  $('treset').onclick=()=>{if(confirm('누적 점수와 이번 라운드 기록을 모두 지우고 처음부터 시작할까요?')){results={};update(ref(db),{scores:null,results:null,game:null})}};
 }
 function listenT(){
   onValue(ref(db,'game'),s=>onGame(s.val()));
   onValue(ref(db,'players'),s=>{players=s.val()||{};teacherView()});
   onValue(ref(db,'scores'),s=>{tscores=s.val()||{};teacherView()});
   let un=null,rd=-1;
-  onValue(ref(db,'game/round'),s=>{const r=s.val();if(r===rd)return;rd=r;if(un)un();if(r)un=onValue(ref(db,'results/'+r),x=>{results=x.val()||{};teacherView()})});
+  onValue(ref(db,'game/round'),s=>{const r=s.val();if(r===rd)return;rd=r;if(un)un();if(r)un=onValue(ref(db,'results/'+r),x=>{results=x.val()||{};teacherView()});else{results={};teacherView()}});
 }
 async function startRound(){
   const pool=PZ.map((p,i)=>i).filter(i=>(level==='all'||PZ[i][0]===level)&&(kindSel==='all'||PZ[i][3]===kindSel));
