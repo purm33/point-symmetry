@@ -76,8 +76,12 @@ input.pin{font:700 20px sans-serif;width:6ch;text-align:center;padding:6px;borde
 
   <!-- 학생: 번호 고르기 -->
   <section class="card" id="join" hidden>
-    <b>내 번호를 눌러 주세요</b>
-    <div class="nums" id="nums"></div>
+    <div id="clsStep"><b>우리 반을 눌러 주세요</b><div class="nums" id="clsBtns"></div></div>
+    <div id="numStep" hidden>
+      <b><span id="clsLab"></span> 내 번호를 눌러 주세요</b>
+      <button class="btn" id="clsBack" type="button" style="min-height:30px;padding:2px 10px;margin-left:8px">반 바꾸기</button>
+      <div class="nums" id="nums"></div>
+    </div>
   </section>
 
   <!-- 학생: 진행 상황과 보드 -->
@@ -107,6 +111,8 @@ input.pin{font:700 20px sans-serif;width:6ch;text-align:center;padding:6px;borde
   <!-- 교사: 진행 화면 -->
   <section id="teacher" hidden>
     <div class="card row">
+      <span class="lab">반</span>
+      <div class="seg" id="clsSeg" role="radiogroup" aria-label="반"></div>
       <span class="lab">난이도</span>
       <div class="seg" role="radiogroup" aria-label="난이도">
         <label><input type="radio" name="lv" value="easy" checked><span>쉬움</span></label>
@@ -138,8 +144,9 @@ import {getDatabase,ref,set,update,onValue,get,onDisconnect} from "https://www.g
 
 /* ===== 설정: 교사 화면 비밀번호는 여기서 바꾸세요 ===== */
 const TEACHER_PIN='1234';
-/* 번호: 여학생 1~12번, 남학생 51~63번 */
-const GIRLS=Array.from({length:12},(_,i)=>i+1),BOYS=Array.from({length:13},(_,i)=>i+51),NUMS=GIRLS.concat(BOYS);
+/* 반: 1~8반 / 번호: 여학생 1~15번, 남학생 51~65번 */
+const CLASSES=8;
+const GIRLS=Array.from({length:15},(_,i)=>i+1),BOYS=Array.from({length:15},(_,i)=>i+51),NUMS=GIRLS.concat(BOYS);
 const db=getDatabase(initializeApp({
   apiKey:"AIzaSyAzd6e5ZMFHuXBT6UdVmoUPy7eJNNChS1M",
   authDomain:"point-symmetry.firebaseapp.com",
@@ -150,6 +157,8 @@ const db=getDatabase(initializeApp({
   appId:"1:604772884112:web:1bda032bff4c914df1c215"
 }));
 
+let cls=null;
+const R=p=>ref(db,'c/'+cls+(p?'/'+p:''));
 const $=i=>document.getElementById(i);
 const isT=new URLSearchParams(location.search).has('teacher');
 let off=0;onValue(ref(db,'.info/serverTimeOffset'),s=>{off=s.val()||0});
@@ -159,9 +168,9 @@ const ls=(k,v)=>{try{if(v===undefined)return localStorage.getItem(k);v===null?lo
 /* 학생 번호는 이 탭에만 임시로 저장한다. 창을 닫거나 날짜가 바뀌면 사라져서, 다음에 열면 번호 선택 화면이 나온다 */
 const ss=(k,v)=>{try{if(v===undefined)return sessionStorage.getItem(k);v===null?sessionStorage.removeItem(k):sessionStorage.setItem(k,v)}catch(e){return null}};
 const today=()=>{const d=new Date();return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate()};
-function loadNo(){ls('pg.no',null);if(ss('pg.day')!==today()){ss('pg.no',null);return null}return ss('pg.no')}
-function saveNo(n){ss('pg.no',n);ss('pg.day',today())}
-function clearNo(){ss('pg.no',null);ss('pg.day',null)}
+function loadNo(){ls('pg.no',null);if(ss('pg.day')!==today()){ss('pg.no',null);ss('pg.cls',null);return null}cls=ss('pg.cls');return cls?ss('pg.no'):null}
+function saveNo(n){ss('pg.no',n);ss('pg.cls',cls);ss('pg.day',today())}
+function clearNo(){ss('pg.no',null);ss('pg.cls',null);ss('pg.day',null)}
 
 /* ===== 문제 ===== */
 const PP=[
@@ -279,7 +288,7 @@ function solved(){
   cur=null;finished=true;confetti();
   if(mode==='practice'){say('정답이에요! 「새 연습 문제」를 눌러 계속 연습해요.');render();return}
   finMs=Math.round(now()-g.startAt);
-  set(ref(db,'results/'+curRound+'/'+no),finMs);
+  set(R('results/'+curRound+'/'+no),finMs);
   say('완성! 기록 '+fmt(finMs)+'. 선생님이 끝낼 때까지 기다려요.');render();
 }
 const say=t=>{$('msg').textContent=t};
@@ -298,7 +307,7 @@ function startRace(){
   const p=g.puzzle;pz=inst(p.i,p);
   mode='race';curRound=g.round;segs=[];cur=null;hist=[];finished=false;showAns=false;live=false;results={};
   if(unsubR)unsubR();
-  unsubR=onValue(ref(db,'results/'+curRound),s=>{results=s.val()||{};showRank()});
+  unsubR=onValue(R('results/'+curRound),s=>{results=s.val()||{};showRank()});
   $('newp').hidden=true;$('linkWrap').hidden=true;
   say('준비하세요! 곧 그림이 나타나요.');render();
 }
@@ -333,8 +342,15 @@ function onGame(v){
 }
 
 function register(){
-  const pr=ref(db,'players/'+no);
+  const pr=R('players/'+no);
   onValue(ref(db,'.info/connected'),s=>{if(s.val()){set(pr,true);onDisconnect(pr).remove()}});
+}
+let unsubP=null;
+function showNums(){
+  $('clsStep').hidden=true;$('numStep').hidden=false;$('clsLab').textContent=cls+'반';
+  NUMS.forEach(i=>{const b=$('n'+i);if(b)b.disabled=false});
+  if(unsubP)unsubP();
+  unsubP=onValue(R('players'),s=>{const p=s.val()||{};NUMS.forEach(i=>{const b=$('n'+i);if(b)b.disabled=!!p[i]&&String(i)!==String(no)})});
 }
 function studentInit(){
   $('sub').textContent='점대칭과 선대칭 문제를 풀어요. 선생님이 시작하면 모두 같은 문제를 동시에 풀고, 빨리 완성한 순서대로 순위가 정해져요.';
@@ -344,20 +360,23 @@ function studentInit(){
     const h=document.createElement('div');h.className='lab';h.style.gridColumn='1/-1';h.textContent=t;n0.appendChild(h);
     list.forEach(i=>{const b=document.createElement('button');b.className='btn';b.type='button';b.textContent=i;b.id='n'+i;b.onclick=()=>pick(i);n0.appendChild(b)});
   });
-  onValue(ref(db,'players'),s=>{const p=s.val()||{};NUMS.forEach(i=>{const b=$('n'+i);if(b)b.disabled=!!p[i]&&String(i)!==String(no)})});
+  const cb=$('clsBtns');
+  for(let c=1;c<=CLASSES;c++){const b=document.createElement('button');b.className='btn';b.type='button';b.textContent=c+'반';b.onclick=()=>{cls=String(c);showNums()};cb.appendChild(b)}
+  $('clsBack').onclick=()=>{if(unsubP)unsubP();unsubP=null;$('numStep').hidden=true;$('clsStep').hidden=false};
   $('undo').onclick=()=>{if(!canPlay())return;const h=hist.pop();if(!h)return;segs=h.s;cur=h.c;render()};
   $('clear').onclick=()=>{if(!canPlay()||(!segs.length&&!cur))return;hist.push({s:segs.slice(),c:cur});segs=[];cur=null;render()};
   $('newp').onclick=newPractice;$('links').onchange=render;
   no=loadNo();
-  if(no)enter();else $('join').hidden=false;
+  if(no&&cls)enter();else{no=null;$('join').hidden=false}
 }
 function pick(i){no=String(i);saveNo(no);enter()}
 function enter(){
   $('join').hidden=true;$('stage').hidden=false;$('boardCard').hidden=false;$('tools').hidden=false;
-  $('who').textContent=no+'번 친구 ';
+  if(unsubP){unsubP();unsubP=null}
+  $('who').textContent=cls+'반 '+no+'번 친구 ';
   const ch=document.createElement('button');ch.className='btn';ch.type='button';ch.textContent='번호 바꾸기';ch.style.minHeight='30px';ch.style.padding='2px 8px';
   ch.onclick=()=>{if(g.state==='play')return;clearNo();location.reload()};$('who').appendChild(ch);chBtn=ch;lockChange();
-  register();onGame(g);
+  register();onValue(R('game'),s=>onGame(s.val()));
 }
 
 /* ===== 교사 화면 ===== */
@@ -365,37 +384,47 @@ let players={},tscores={},level='easy',kindSel='all';
 function teacherInit(){
   $('app').classList.add('wide');
   $('sub').textContent='교사용 화면: 시작과 종료를 누르면 학생 화면이 함께 바뀌어요.';
+  cls=ls('pg.tc')||'1';
+  const sg=$('clsSeg');
+  for(let c=1;c<=CLASSES;c++){const l=document.createElement('label'),i=document.createElement('input'),sp=document.createElement('span');
+    i.type='radio';i.name='cl';i.value=c;i.checked=String(c)===cls;sp.textContent=c+'반';
+    i.onchange=()=>{if(i.checked){cls=String(c);ls('pg.tc',cls);listenT()}};
+    l.appendChild(i);l.appendChild(sp);sg.appendChild(l)}
   const open=()=>{$('pinForm').hidden=true;$('teacher').hidden=false;listenT()};
   if(ls('pg.t')==='1')open();else $('pinForm').hidden=false;
   $('pinForm').onsubmit=e=>{e.preventDefault();if($('pin').value===TEACHER_PIN){ls('pg.t','1');open()}else $('pinMsg').textContent='비밀번호가 달라요.'};
   document.querySelectorAll('input[name="lv"]').forEach(r=>r.onchange=()=>{if(r.checked)level=r.value});
   document.querySelectorAll('input[name="ty"]').forEach(r=>r.onchange=()=>{if(r.checked)kindSel=r.value});
   $('tgo').onclick=()=>g.state==='play'?endRound():startRound();
-  $('treset').onclick=()=>{if(confirm('누적 점수와 이번 라운드 기록을 모두 지우고 처음부터 시작할까요?')){results={};update(ref(db),{scores:null,results:null,game:null})}};
+  $('treset').onclick=()=>{if(confirm(cls+'반의 누적 점수와 이번 라운드 기록을 모두 지우고 처음부터 시작할까요?')){results={};update(R(''),{scores:null,results:null,game:null})}};
 }
+let uns=[];
 function listenT(){
-  onValue(ref(db,'game'),s=>onGame(s.val()));
-  onValue(ref(db,'players'),s=>{players=s.val()||{};teacherView()});
-  onValue(ref(db,'scores'),s=>{tscores=s.val()||{};teacherView()});
+  uns.forEach(f=>f());uns=[];
+  g={state:'idle'};players={};tscores={};results={};teacherView();
   let un=null,rd=-1;
-  onValue(ref(db,'game/round'),s=>{const r=s.val();if(r===rd)return;rd=r;if(un)un();if(r)un=onValue(ref(db,'results/'+r),x=>{results=x.val()||{};teacherView()});else{results={};teacherView()}});
+  uns.push(onValue(R('game'),s=>onGame(s.val())));
+  uns.push(onValue(R('players'),s=>{players=s.val()||{};teacherView()}));
+  uns.push(onValue(R('scores'),s=>{tscores=s.val()||{};teacherView()}));
+  uns.push(onValue(R('game/round'),s=>{const r=s.val();if(r===rd)return;rd=r;if(un)un();un=null;if(r)un=onValue(R('results/'+r),x=>{results=x.val()||{};teacherView()});else{results={};teacherView()}}));
+  uns.push(()=>{if(un)un()});
 }
 async function startRound(){
   const pool=PZ.map((p,i)=>i).filter(i=>(level==='all'||PZ[i][0]===level)&&(kindSel==='all'||PZ[i][3]===kindSel));
   const i=pool[Math.floor(Math.random()*pool.length)];
   const round=((g&&g.round)||0)+1;
-  await set(ref(db,'game'),{round,state:'play',startAt:now()+4000,level,puzzle:{i,t:Math.random()<.5,x:Math.random()<.5,y:Math.random()<.5}});
+  await set(R('game'),{round,state:'play',startAt:now()+4000,level,puzzle:{i,t:Math.random()<.5,x:Math.random()<.5,y:Math.random()<.5}});
 }
 /* 순위별 점수: 1~5등 3점, 6~10등 2점, 그 밖에 완성한 친구 1점. 완성하지 못한 친구는 기록이 없어서 0점 */
 const rankPts=i=>i<5?3:i<10?2:1;
 async function endRound(){
-  const cg=(await get(ref(db,'game'))).val();
+  const cg=(await get(R('game'))).val();
   if(!cg||cg.state!=='play')return;
-  const r=(await get(ref(db,'results/'+cg.round))).val()||{};
-  const sc=(await get(ref(db,'scores'))).val()||{};
+  const r=(await get(R('results/'+cg.round))).val()||{};
+  const sc=(await get(R('scores'))).val()||{};
   Object.entries(r).sort((a,b)=>a[1]-b[1]).forEach(([k],i)=>{sc[k]=(sc[k]||0)+rankPts(i)});
-  await set(ref(db,'scores'),sc);
-  await update(ref(db,'game'),{state:'done'});
+  await set(R('scores'),sc);
+  await update(R('game'),{state:'done'});
 }
 function teacherView(){
   if(!isT)return;
@@ -403,12 +432,13 @@ function teacherView(){
   $('tgo').textContent=g.state==='play'?'종료':'시작';
   $('tstat').textContent='접속 '+n+'명'+(g.state==='play'?' · 완성 '+ord.length+'명':'');
   $('tmsg').textContent=g.state==='play'?(g.round+'라운드 진행 중이에요.'):g.state==='done'?(g.round+'라운드가 끝났어요. 도형 이름: '+PZ[g.puzzle.i][1]):'난이도를 고르고 시작을 누르세요.';
+  $('tmsg').textContent=cls+'반 · '+$('tmsg').textContent;
   const rk=$('trank');rk.replaceChildren();
   ord.forEach((a,i)=>{const li=document.createElement('li');li.innerHTML='<b>'+(i+1)+'등</b>'+a[0]+'번 '+fmt(a[1])+(g.state==='done'?' (+'+rankPts(i)+')':'');rk.appendChild(li)});
   const sc=$('tscore');sc.replaceChildren();
   Object.entries(tscores).sort((a,b)=>b[1]-a[1]).forEach(a=>{const d=document.createElement('span');d.className='chip';d.innerHTML='<b>'+a[0]+'번</b>'+a[1]+'점';sc.appendChild(d)});
 }
 
-if(isT)teacherInit();else{studentInit();onValue(ref(db,'game'),s=>onGame(s.val()))}
+if(isT)teacherInit();else studentInit();
 </script>
 </body></html>
