@@ -69,6 +69,11 @@ ol.rk li b,.chip b{margin-right:6px}
 @media (max-width:700px){.cols{grid-template-columns:1fr}}
 h2{margin:0 0 4px;font-size:15px}
 input.pin{font:700 20px sans-serif;width:6ch;text-align:center;padding:6px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);letter-spacing:.3em}
+.guide{margin-bottom:12px}
+.guide summary{cursor:pointer;font-weight:700;min-height:28px}
+.guide ol{margin:8px 0 0;padding-left:22px}
+.guide li{margin:6px 0}
+.guide ul{margin:4px 0 0;padding-left:18px}
 </style></head>
 <body>
 <main class="app" id="app">
@@ -110,6 +115,24 @@ input.pin{font:700 20px sans-serif;width:6ch;text-align:center;padding:6px;borde
 
   <!-- 교사: 진행 화면 -->
   <section id="teacher" hidden>
+    <details class="card guide" open>
+      <summary>게임 안내</summary>
+      <ol>
+        <li><b>시작 전:</b> 학생들은 자기 반과 번호를 고른 뒤, 혼자 연습 문제를 풀며 기다려요. 점대칭과 선대칭 문제가 섞여 나와요.</li>
+        <li><b>시작:</b> 반, 난이도, 유형을 고르고 <b>시작</b>을 누르면 3초 카운트다운 뒤 그 반 학생 모두에게 같은 문제가 나와요.</li>
+        <li><b>대결:</b> 도형을 먼저 완성한 순서대로 순위가 정해져요. 완성하면 초록색으로 바뀌고 기록이 자동으로 저장돼요.</li>
+        <li><b>종료:</b> <b>종료</b>를 누르면 점수가 계산돼요.
+          <ul>
+            <li>1~5등: 3점</li>
+            <li>6~10등: 2점</li>
+            <li>11등부터 완성한 학생: 1점</li>
+            <li>끝까지 완성하지 못한 학생: 0점</li>
+          </ul>
+        </li>
+        <li><b>라운드마다 종료를 꼭 눌러 주세요.</b> 종료하지 않고 다음 라운드를 시작하면 그 라운드의 점수는 들어가지 않아요.</li>
+        <li>누적 점수는 반별로 따로 쌓이고, <b>전체 초기화</b>를 누르면 고른 반의 점수와 기록이 모두 지워져요.</li>
+      </ol>
+    </details>
     <div class="card row">
       <span class="lab">반</span>
       <div class="seg" id="clsSeg" role="radiogroup" aria-label="반"></div>
